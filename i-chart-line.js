@@ -29,7 +29,8 @@ module.exports = function (window) {
                 'x2-axis-min': 'number',
                 'x2-axis-max': 'number',
                 'y2-axis-min': 'number',
-                'y2-axis-max': 'number'
+                'y2-axis-max': 'number',
+                'markers': 'boolean'
             },
 
             init: function() {
@@ -41,8 +42,8 @@ module.exports = function (window) {
                     content = '',
                     svgNode;
 
-                if (model['x-axis']) {
-                    content += '<section is="x-axis">'+model['x-axis']+'</section>';
+                if (model['x2-axis']) {
+                    content += '<section is="x2-axis">'+model['x2-axis']+'</section>';
                 }
                 content += '<section is="grapharea">';
                 if (model['y-axis']) {
@@ -52,14 +53,14 @@ module.exports = function (window) {
                 // it will be updated by `createSeries`, but we need to pass through the current values, to prevent
                 // the vdom from clearing and resetting, which basicly would mean no diffing-advangage
                 svgNode = element.getData('_svgNode');
-                content += svgNode ? svgNode.outerHTML() : '<svg></svg>';
+                content += svgNode ? svgNode.getOuterHTML() : '<svg></svg>';
                 if (model['y2-axis']) {
                     content += '<section is="y2-axis">'+model['y2-axis']+'</section>';
                 }
                 content += '</section>';
 
-                if (model['x2-axis']) {
-                    content += '<section is="x2-axis">'+model['x-axis']+'</section>';
+                if (model['x-axis']) {
+                    content += '<section is="x-axis">'+model['x-axis']+'</section>';
                 }
                 return content;
             },
@@ -88,7 +89,8 @@ module.exports = function (window) {
                     y2maxDefined = (maxy2!==undefined),
                     len = series.length,
                     graphs = '',
-                    markerDefs, i, serie, legend, svgNode, boundaries, useX2, useY2, serieBoundaries, extra;
+                    markerDefs = '',
+                    i, serie, legend, svgNode, boundaries, useX2, useY2, serieBoundaries, extra, legendString;
 
                 if (!element.hasData('_svgNode')) {
                     element.setData('_svgNode', element.getElement('svg'));
@@ -99,11 +101,13 @@ module.exports = function (window) {
                 var refCorrection = markerSize/2;
                 // IE has a buggy implementation of markers :(
                 // therefore, IE gets all markers as separate rectancles...
-                markerDefs = '<defs>'+
-                                 '<marker id="i-graph_marker-1" markerWidth="'+markerSize+'" markerHeight="'+markerSize+'" refX="'+refCorrection+'" refY="'+refCorrection+'" markerUnits="strokeWidth">'+
-                                     '<rect x="0" y="0" width="'+markerSize+'" height="'+markerSize+'" style="fill:#F00" />'+
-                                 '</marker>'+
-                             '</defs>';
+                if (model.markers) {
+                    markerDefs = '<defs>'+
+                                     '<marker id="i-graph_marker-1" markerWidth="'+markerSize+'" markerHeight="'+markerSize+'" refX="'+refCorrection+'" refY="'+refCorrection+'" markerUnits="strokeWidth">'+
+                                         '<rect x="0" y="0" width="'+markerSize+'" height="'+markerSize+'" style="fill:#F00" />'+
+                                     '</marker>'+
+                                 '</defs>';
+                }
 
                 // first of all, we need to determine the axis's minimum and maximum values
                 // because this will effect the positions of the drawn points
@@ -123,7 +127,7 @@ module.exports = function (window) {
                 for (i=0; i<len; i++) {
                     serie = series[i];
                     legend = serie.legend;
-                    serieBoundaries = element.getSeriesBoundaries(serie.data);
+                    serieBoundaries = element.getSeriesBoundaries(serie);
                     if (!serie['x2-axis']) {
                         // check x-axis
                         if (!xminDefined && ((serieBoundaries.minx<minx) || (minx===undefined))) {
@@ -194,30 +198,42 @@ module.exports = function (window) {
                 for (i=0; (i<len); i++) {
                     serie = series[i];
                     legend = serie.legend;
-                    graphs += '<polyline i-serie="'+legend+'" points="'+element.generateSerieData(serie, boundaries)+'" fill="none" stroke="#000" stroke-width="3" marker-end="url(#i-graph_marker-1)" marker-start="url(#i-graph_marker-1)" marker-mid="url(#i-graph_marker-1)" />';
+                    legendString = legend ? ' i-serie="'+legend+'"' : '';
+                    graphs += '<polyline'+legendString+' points="'+element.generateSerieData(serie, boundaries)+'" fill="none" stroke="#000" stroke-width="3" marker-end="url(#i-graph_marker-1)" marker-start="url(#i-graph_marker-1)" marker-mid="url(#i-graph_marker-1)" />';
                 }
 
                 svgNode.setHTML(markerDefs+graphs);
             },
 
-            getSeriesBoundaries: function(data) {
-                var len = data.length,
-                    index = 0,
+            getSeriesBoundaries: function(serie) {
+                var element = this,
+                    data = serie.data,
+                    len = data.length,
                     minx = 0,
                     maxx = 0,
                     miny = 0,
                     maxy = 0,
-                    i, point, isArrayPos, x, y;
+                    serieIsArray = (len>0) && Array.isArray(data[0]),
+                    xprop = serie['x-prop'],
+                    yprop = serie['y-prop'],
+                    i, point, x, y, index, indent, svgNode, svgWidth;
+                if (!serieIsArray) {
+                    svgNode = element.getData('_svgNode');
+                    // cannot use node.width, for svg-elements have their own definition of `width`
+                    // also: not all browsers support the property 'offsetWidth' of the svg-element
+                    svgWidth = svgNode.offsetWidth || parseInt(svgNode.getStyle('width'), 10);
+                    index = 0;
+                    indent = (len>1) ? (svgWidth/(len-1)) : 0;
+                }
                 for (i=0; i<len; i++) {
                     point = data[i];
-                    isArrayPos = (typeof point!=='number');
-                    if (isArrayPos) {
+                    if (serieIsArray) {
                         x = point[0];
-                        y = point[1];
+                        y = yprop ? point[1][yprop] : point[1];
                     }
                     else {
-                        x = index;
-                        y = point;
+                        x = xprop ? point[xprop] : index;
+                        y = yprop ? point[yprop] : point;
                     }
                     if (x>maxx) {
                         maxx = x;
@@ -231,7 +247,7 @@ module.exports = function (window) {
                     else if (y<miny) {
                         miny = y;
                     }
-                    isArrayPos && (index += 25);
+                    serieIsArray || xprop || (index += indent);
                 }
                 return {
                     minx: minx,
@@ -249,17 +265,18 @@ module.exports = function (window) {
                     graphData = '',
                     index = 0,
                     svgNode = element.getData('_svgNode'),
-                    svgWidth = svgNode.offsetWidth, // cannot use node.width, for svg-elements have their own definition of `width`
-                    svgHeight = svgNode.offsetHeight, // cannot use node.height, for svg-elements have their own definition of `height`
+                    // cannot use node.width, for svg-elements have their own definition of `width`
+                    // also: not all browsers support the property 'offsetWidth' of the svg-element
+                    svgWidth = svgNode.offsetWidth || parseInt(svgNode.getStyle('width'), 10),
+                    svgHeight = svgNode.offsetHeight || parseInt(svgNode.getStyle('height'), 10),
                     serieIsArray = (len>0) && Array.isArray(serieData[0]),
+                    xprop = serie['x-prop'],
+                    yprop = serie['y-prop'],
                     indent, i, point, x, y, yShift,
-                    minx, maxx, miny, maxy, scaleX, scaleY;
+                    minx, maxx, miny, maxy, scaleX, scaleY, value;
                 if (len===0) {
                     return '';
                 }
-console.warn('generateSerieData');
-console.warn(boundaries);
-console.warn('svgWidth '+svgWidth);
                 if (serie['x2-axis']) {
                     minx = boundaries.minx2;
                     maxx = boundaries.maxx2;
@@ -276,38 +293,31 @@ console.warn('svgWidth '+svgWidth);
                     miny = boundaries.miny;
                     maxy = boundaries.maxy;
                 }
-
-// console.warn('minx '+minx);
-// console.warn('maxx '+maxx);
-// console.warn('miny '+miny);
-// console.warn('maxy '+maxy);
-// console.warn('scaleX '+scaleX);
-// console.warn('scaleY '+scaleY);
-
                 if (!serieIsArray) {
                     index = 0;
-                    indent = (len>1) ? Math.round(svgWidth/(len-1)) : 0;
+                    indent = (len>1) ? (svgWidth/(len-1)) : 0;
                 }
                 else {
                     // now we calculate a scalecorrection because of the size of the svg-canvas:
                     scaleX = svgWidth/(maxx-minx);
                 }
-console.warn('scaleX '+scaleX);
                 scaleY = svgHeight/(maxy-miny);
                 yShift = scaleY*(maxy-miny);
                 for (i=0; i<len; i++) {
                     point = serieData[i];
                     if (serieIsArray) {
+
                         x = scaleX*(point[0] - minx);
-console.warn('x: '+point[0]+' --> '+x);
-                        y = yShift - (scaleY*point[1]);
+                        value = yprop ? point[1][yprop] : point[1];
+                        y = yShift - (scaleY*value);
                     }
                     else {
-                        x = index;
-                        y = yShift - (scaleY*point);
+                        x = xprop ? point[xprop] : index;
+                        value = yprop ? point[yprop] : point;
+                        y = yShift - (scaleY*value);
                     }
                     graphData += ' '+x+','+y;
-                    serieIsArray || (index += indent);
+                    serieIsArray || xprop || (index += indent);
                 }
                 // remove starting space when there is data:
                 (len>0) && (graphData=graphData.substr(1));
