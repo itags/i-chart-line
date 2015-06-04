@@ -221,7 +221,7 @@ module.exports = function (window) {
                     svgNode = element.getData('_svgNode');
                     // cannot use node.width, for svg-elements have their own definition of `width`
                     // also: not all browsers support the property 'offsetWidth' of the svg-element
-                    svgWidth = svgNode.offsetWidth || parseInt(svgNode.getStyle('width'), 10);
+                    svgWidth = svgNode.width;
                     index = 0;
                     indent = (len>1) ? (svgWidth/(len-1)) : 0;
                 }
@@ -267,8 +267,8 @@ module.exports = function (window) {
                     svgNode = element.getData('_svgNode'),
                     // cannot use node.width, for svg-elements have their own definition of `width`
                     // also: not all browsers support the property 'offsetWidth' of the svg-element
-                    svgWidth = svgNode.offsetWidth || parseInt(svgNode.getStyle('width'), 10),
-                    svgHeight = svgNode.offsetHeight || parseInt(svgNode.getStyle('height'), 10),
+                    svgWidth = svgNode.width,
+                    svgHeight = svgNode.height,
                     serieIsArray = (len>0) && Array.isArray(serieData[0]),
                     xprop = serie['x-prop'],
                     yprop = serie['y-prop'],
