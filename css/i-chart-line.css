@@ -22,6 +22,7 @@ i-chart section[is="y2-axis"] {
     text-align: center;
     padding: 0.1em;
     font-size: 0.8em;
+    white-space: nowrap;
 }
 
 i-chart section[is="y-axis"],

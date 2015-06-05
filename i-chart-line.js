@@ -36,21 +36,37 @@ module.exports = function (window) {
             init: function() {
             },
 
-            getSVGHeight: function() {
-                // because svgNode.svgHeight returns falsy falues in some browsers (flexbox-issue), we need to calculate:
+            fitSizes: function() {
                 var element = this,
                     svgNode = element.getSVGNode(),
-                    height = 0,
-                    sectionNode, sectionXAxis;
+                    width, height, sectionNode, parentNode;
                 if (svgNode) {
-                    sectionNode = svgNode.inside('section[is="chart"]');
-                    height = sectionNode.height;
-                    sectionXAxis = sectionNode.getElement('>section[is="x-axis"]');
-                    sectionXAxis && (height-=sectionXAxis.height);
-                    sectionXAxis = sectionNode.getElement('>section[is="x2-axis"]');
-                    sectionXAxis && (height-=sectionXAxis.height);
+                    svgNode.setAttr('viewBox', '0 0 '+element.getViewBoxWidth()+' '+element.getViewBoxHeight());
+                    // because svgNode.svgHeight returns falsy falues in some browsers (flexbox-issue), we need to calculate:
+                    height = element.innerHeight;
+                    width = element.innerWidth;
+                    // decrease height:
+                    sectionNode = element.getElement('section[is="title"]');
+                    sectionNode && (height-=sectionNode.height);
+                    sectionNode = element.getElement('section[is="footer"]');
+                    sectionNode && (height-=sectionNode.height);
+                    parentNode = svgNode.inside('section[is="chart"]');
+                    sectionNode = parentNode.getElement('section[is="x-axis"]');
+                    sectionNode && (height-=sectionNode.height);
+                    sectionNode = parentNode.getElement('section[is="x2-axis"]');
+                    sectionNode && (height-=sectionNode.height);
+                    // decrease width:
+                    parentNode = svgNode.inside('section[is="chartarea"]');
+                    sectionNode = parentNode.getElement('section[is="y-axis"]');
+                    sectionNode && (width-=sectionNode.height); // NOT width: node is rotated!
+                    sectionNode = parentNode.getElement('section[is="y2-axis"]');
+                    sectionNode && (width-=sectionNode.height); // NOT width: node is rotated!
+                    // now we specificly set the height on the svg-node:
+                    svgNode.setInlineStyles([
+                        {property: 'width', value: width+'px'},
+                        {property: 'height', value: height+'px'}
+                    ]);
                 }
-                return height;
             },
 
             renderGraph: function() {
