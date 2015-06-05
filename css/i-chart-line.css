@@ -32,7 +32,7 @@ i-chart section[is="y2-axis"] {
     height: 1em;
 }
 
-i-chart section[is="grapharea"] {
+i-chart section[is="chartarea"] {
     flex-grow: 1;
     -ms-flex-grow: 1;
     -webkit-flex-grow: 1;

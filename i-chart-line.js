@@ -36,6 +36,23 @@ module.exports = function (window) {
             init: function() {
             },
 
+            getSVGHeight: function() {
+                // because svgNode.svgHeight returns falsy falues in some browsers (flexbox-issue), we need to calculate:
+                var element = this,
+                    svgNode = element.getSVGNode(),
+                    height = 0,
+                    sectionNode, sectionXAxis;
+                if (svgNode) {
+                    sectionNode = svgNode.inside('section[is="chart"]');
+                    height = sectionNode.height;
+                    sectionXAxis = sectionNode.getElement('>section[is="x-axis"]');
+                    sectionXAxis && (height-=sectionXAxis.height);
+                    sectionXAxis = sectionNode.getElement('>section[is="x2-axis"]');
+                    sectionXAxis && (height-=sectionXAxis.height);
+                }
+                return height;
+            },
+
             renderGraph: function() {
                 var element = this,
                     model = element.model,
@@ -45,15 +62,20 @@ module.exports = function (window) {
                 if (model['x2-axis']) {
                     content += '<section is="x2-axis">'+model['x2-axis']+'</section>';
                 }
-                content += '<section is="grapharea">';
+                content += '<section is="chartarea">';
                 if (model['y-axis']) {
                     content += '<section is="y-axis">'+model['y-axis']+'</section>';
                 }
                 // at this stage, we must retain the current content of the svg-element
                 // it will be updated by `createSeries`, but we need to pass through the current values, to prevent
                 // the vdom from clearing and resetting, which basicly would mean no diffing-advangage
-                svgNode = element.getData('_svgNode');
-                content += svgNode ? svgNode.getOuterHTML() : '<svg></svg>';
+                svgNode = element.getSVGNode();
+                if (svgNode) {
+                    content += svgNode.getOuterHTML();
+                }
+                else {
+                    content += '<svg></svg>';
+                }
                 if (model['y2-axis']) {
                     content += '<section is="y2-axis">'+model['y2-axis']+'</section>';
                 }
@@ -90,12 +112,7 @@ module.exports = function (window) {
                     len = series.length,
                     graphs = '',
                     markerDefs = '',
-                    i, serie, legend, svgNode, boundaries, useX2, useY2, serieBoundaries, extra, legendString;
-
-                if (!element.hasData('_svgNode')) {
-                    element.setData('_svgNode', element.getElement('svg'));
-                }
-                svgNode = element.getData('_svgNode');
+                    i, serie, legend, boundaries, useX2, useY2, serieBoundaries, extra, legendString;
 
                 var markerSize = 3;
                 var refCorrection = markerSize/2;
@@ -103,7 +120,7 @@ module.exports = function (window) {
                 // therefore, IE gets all markers as separate rectancles...
                 if (model.markers) {
                     markerDefs = '<defs>'+
-                                     '<marker id="i-graph_marker-1" markerWidth="'+markerSize+'" markerHeight="'+markerSize+'" refX="'+refCorrection+'" refY="'+refCorrection+'" markerUnits="strokeWidth">'+
+                                     '<marker id="i-chart_marker-1" markerWidth="'+markerSize+'" markerHeight="'+markerSize+'" refX="'+refCorrection+'" refY="'+refCorrection+'" markerUnits="strokeWidth">'+
                                          '<rect x="0" y="0" width="'+markerSize+'" height="'+markerSize+'" style="fill:#F00" />'+
                                      '</marker>'+
                                  '</defs>';
@@ -199,10 +216,10 @@ module.exports = function (window) {
                     serie = series[i];
                     legend = serie.legend;
                     legendString = legend ? ' i-serie="'+legend+'"' : '';
-                    graphs += '<polyline'+legendString+' points="'+element.generateSerieData(serie, boundaries)+'" fill="none" stroke="#000" stroke-width="3" marker-end="url(#i-graph_marker-1)" marker-start="url(#i-graph_marker-1)" marker-mid="url(#i-graph_marker-1)" />';
+                    graphs += '<polyline'+legendString+' points="'+element.generateSerieData(serie, boundaries)+'" fill="none" stroke="#000" stroke-width="10" marker-end="url(#i-chart_marker-1)" marker-start="url(#i-chart_marker-1)" marker-mid="url(#i-chart_marker-1)" />';
                 }
 
-                svgNode.setHTML(markerDefs+graphs);
+                element.getSVGNode().setHTML(markerDefs+graphs);
             },
 
             getSeriesBoundaries: function(serie) {
@@ -216,14 +233,10 @@ module.exports = function (window) {
                     serieIsArray = (len>0) && Array.isArray(data[0]),
                     xprop = serie['x-prop'],
                     yprop = serie['y-prop'],
-                    i, point, x, y, index, indent, svgNode, svgWidth;
+                    i, point, x, y, index, indent;
                 if (!serieIsArray) {
-                    svgNode = element.getData('_svgNode');
-                    // cannot use node.width, for svg-elements have their own definition of `width`
-                    // also: not all browsers support the property 'offsetWidth' of the svg-element
-                    svgWidth = svgNode.width;
                     index = 0;
-                    indent = (len>1) ? (svgWidth/(len-1)) : 0;
+                    indent = (len>1) ? (element.getViewBoxWidth()/(len-1)) : 0;
                 }
                 for (i=0; i<len; i++) {
                     point = data[i];
@@ -264,14 +277,10 @@ module.exports = function (window) {
                     len = serieData.length,
                     graphData = '',
                     index = 0,
-                    svgNode = element.getData('_svgNode'),
-                    // cannot use node.width, for svg-elements have their own definition of `width`
-                    // also: not all browsers support the property 'offsetWidth' of the svg-element
-                    svgWidth = svgNode.width,
-                    svgHeight = svgNode.height,
                     serieIsArray = (len>0) && Array.isArray(serieData[0]),
                     xprop = serie['x-prop'],
                     yprop = serie['y-prop'],
+                    svgWidth = element.getViewBoxWidth(),
                     indent, i, point, x, y, yShift,
                     minx, maxx, miny, maxy, scaleX, scaleY, value;
                 if (len===0) {
@@ -301,12 +310,11 @@ module.exports = function (window) {
                     // now we calculate a scalecorrection because of the size of the svg-canvas:
                     scaleX = svgWidth/(maxx-minx);
                 }
-                scaleY = svgHeight/(maxy-miny);
+                scaleY = element.getViewBoxHeight()/(maxy-miny);
                 yShift = scaleY*(maxy-miny);
                 for (i=0; i<len; i++) {
                     point = serieData[i];
                     if (serieIsArray) {
-
                         x = scaleX*(point[0] - minx);
                         value = yprop ? point[1][yprop] : point[1];
                         y = yShift - (scaleY*value);
