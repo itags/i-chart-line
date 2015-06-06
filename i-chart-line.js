@@ -41,7 +41,6 @@ module.exports = function (window) {
                     svgNode = element.getSVGNode(),
                     width, height, sectionNode, parentNode;
                 if (svgNode) {
-                    svgNode.setAttr('viewBox', '0 0 '+element.getViewBoxWidth()+' '+element.getViewBoxHeight());
                     // because svgNode.svgHeight returns falsy falues in some browsers (flexbox-issue), we need to calculate:
                     height = element.innerHeight;
                     width = element.innerWidth;
