@@ -230,7 +230,7 @@ module.exports = function (window) {
                 for (i=0; (i<len); i++) {
                     serie = series[i];
                     legend = serie.legend;
-                    legendString = legend ? ' i-serie="'+legend+'"' : '';
+                    legendString = ' i-serie="'+(legend || i) +'"';
                     graphs += '<polyline'+legendString+' points="'+element.generateSerieData(serie, boundaries)+'" fill="none" stroke="#000" stroke-width="10" marker-end="url(#i-chart_marker-1)" marker-start="url(#i-chart_marker-1)" marker-mid="url(#i-chart_marker-1)" />';
                 }
 
